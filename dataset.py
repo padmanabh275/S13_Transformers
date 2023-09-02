@@ -21,12 +21,12 @@ class BilingualDataset(Dataset):
     def __len__(self):
         return len(self.ds)
 
-    def __getitem(self, idx):
+    def __getitem__(self, idx):
         src_target_pair = self.ds[idx]
         src_text = src_target_pair['translation'][self.src_lang]
         tgt_text = src_target_pair['translation'][self.tgt_lang]
 
-        # Transform the text into tokens
+        # Transform the text into tokens        
         enc_input_tokens = self.tokenizer_src.encode(src_text).ids
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
@@ -35,28 +35,36 @@ class BilingualDataset(Dataset):
         # We will only add <s> and </s> only on the label
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
 
-        # Make suer that the number of padding tokens is not negative. If it is, the sentence it too long
-        if enc_num_padding_tokens > 0 or dec_num_padding_tokens < 0:
-            raise ValueError("Sentence is too long")
+        # Make sure that the number of padding tokens is not negative. If it is, the sentence it too long
+        if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
+            raise ValueError ("Sentence is too long")
+            
 
         # Add <s> and </s> token
-        encoder_input = torch.cat([self.sos_token,
-                                    torch.tensor(enc_input_tokens, dtype=torch.int64),
-                                    self.eos_token,
-                                    torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64),
-                                ], dim=0)
-
+        encoder_input = [						
+				self.sos_token,
+                torch.tensor(enc_input_tokens, dtype=torch.int64),
+                self.eos_token,
+                torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64),
+            ]
+        encoder_input = torch.cat(encoder_input,dim=0)
+        
+		
         # Add only <s> token
-        decoder_input = torch.cat([self.sos_token,
-                                    torch.tensor(dec_input_tokens, dtype=torch.int64),
-                                    torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
-                                ], dim=0)
+        decoder_input = [
+				self.sos_token,
+                torch.tensor(dec_input_tokens, dtype=torch.int64),
+                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
+            ]
+        decoder_input = torch.cat(decoder_input,dim=0)
     
         # Add only </s> token
-        label = torch.cat([torch.tensor(dec_input_tokens, dtype=torch.int64),
-                            self.eos_token,
-                            torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
-                        ], dim=0)
+        label = [torch.tensor
+                (dec_input_tokens, dtype=torch.int64),
+                self.eos_token,
+                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
+            ]
+        label = torch.cat(label,dim=0)
 
 
         # Double check the size of the tensors to make sure that they are all seq_len long
@@ -74,6 +82,7 @@ class BilingualDataset(Dataset):
             "tgt_text": tgt_text,
         }
 
-    def causal_mask(size):
+def causal_mask(size):
         mask = torch.triu(torch.ones((1, size, size)), diagonal=1).type(torch.int)
         return mask == 0
+
